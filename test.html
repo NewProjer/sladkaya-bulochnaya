@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сладкая булочная - заказ в Telegram</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #fff9f0;
+            color: #2c1a0e;
+            padding: 20px;
+        }
+        .header {
+            background: #f5e6d3;
+            padding: 20px;
+            text-align: center;
+            border-radius: 28px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            color: #7b3f00;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .menu {
+            flex: 2;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .item {
+            background: white;
+            border-radius: 20px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border: 1px solid #ffe1b9;
+        }
+        .item h3 {
+            font-size: 1.1rem;
+            margin: 8px 0;
+        }
+        .price {
+            font-weight: bold;
+            color: #c26a1a;
+            font-size: 1.2rem;
+        }
+        .add-btn {
+            background: #f0dbc0;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 40px;
+            cursor: pointer;
+            margin-top: 8px;
+            width: 100%;
+        }
+        .cart {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+        }
+        .cart h2 {
+            border-bottom: 2px solid #f0dbc0;
+            padding-bottom: 8px;
+            margin-bottom: 15px;
+        }
+        .cart-items {
+            list-style: none;
+            margin-bottom: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .cart-items li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #ffe1b9;
+        }
+        .cart-total {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: right;
+            margin: 15px 0;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #edd8bb;
+            border-radius: 20px;
+        }
+        .tg-btn {
+            background: #26A5E4;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 40px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .tg-btn:hover {
+            background: #1f8bc2;
+        }
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #b97f44;
+            cursor: pointer;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            display: block;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            display: block;
+        }
+        .address {
+            background: #fef4e8;
+            padding: 15px;
+            text-align: center;
+            border-radius: 20px;
+            margin-top: 20px;
+        }
+        @media (max-width: 800px) {
+            .container {
+                flex-direction: column;
+            }
+            .cart {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🥐 Сладкая булочная</h1>
+    <p>ул. Захарова, 67, корп. 2, Минск</p>
+</div>
+
+<div class="container">
+    <div class="menu" id="menu"></div>
+
+    <div class="cart">
+        <h2>🛒 Ваш заказ</h2>
+        <ul class="cart-items" id="cartItems"></ul>
+        <div class="cart-total">Итого: <span id="cartTotal">0</span> ₽</div>
+        <input type="text" id="clientName" placeholder="Ваше имя">
+        <input type="tel" id="clientPhone" placeholder="Телефон для связи">
+        <textarea id="clientComment" rows="2" placeholder="Пожелания / время самовывоза"></textarea>
+        <button class="tg-btn" id="sendOrderBtn">📨 Отправить заказ в Telegram</button>
+        <div id="statusMsg" class="status"></div>
+    </div>
+</div>
+
+<div class="address">
+    <p>📍 Самовывоз: Минск, ул. Захарова, 67, корп. 2</p>
+    <p>🕒 ежедневно 08:00 – 21:00</p>
+</div>
+
+<script>
+    // === НАСТРОЙКИ TELEGRAM (ВАШИ ДАННЫЕ) ===
+    const BOT_TOKEN = '8826747032:AAH7oBLcJRYBjms79rnrQS532q7g4N04s5I';
+    const CHAT_ID = '5890703131';  // Ваш Telegram ID
+    // =======================================
+
+    // Товары
+    const products = [
+        { id: 1, name: "Заварное колба", price: 8 },
+        { id: 2, name: "Сырный", price: 8 },
+        { id: 3, name: "Торганетка с капустой", price: 4 },
+        { id: 4, name: "Данни", price: 6 },
+        { id: 5, name: "Меняука", price: 5.5 },
+        { id: 6, name: "Пицца", price: 7 },
+        { id: 7, name: "Наносем", price: 6 },
+        { id: 8, name: "Трубочка с лак. кремом", price: 5 },
+        { id: 9, name: "Наносед", price: 6 }
+    ];
+
+    let cart = [];
+
+    function saveCart() {
+        localStorage.setItem('sweetCart', JSON.stringify(cart));
+    }
+
+    function loadCart() {
+        const saved = localStorage.getItem('sweetCart');
+        if (saved) cart = JSON.parse(saved);
+        renderCart();
+    }
+
+    function addToCart(product) {
+        const existing = cart.find(item => item.id === product.id);
+        if (existing) {
+            existing.quantity++;
+        } else {
+            cart.push({ ...product, quantity: 1 });
+        }
+        saveCart();
+        renderCart();
+    }
+
+    function updateQuantity(id, delta) {
+        const idx = cart.findIndex(item => item.id === id);
+        if (idx !== -1) {
+            const newQty = cart[idx].quantity + delta;
+            if (newQty <= 0) cart.splice(idx, 1);
+            else cart[idx].quantity = newQty;
+            saveCart();
+            renderCart();
+        }
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cartItems');
+        const totalSpan = document.getElementById('cartTotal');
+        if (!container) return;
+
+        if (cart.length === 0) {
+            container.innerHTML = '<li style="justify-content:center; color:#b97f44;">Корзина пуста</li>';
+            totalSpan.innerText = '0';
+            return;
+        }
+
+        let total = 0;
+        container.innerHTML = '';
+        cart.forEach(item => {
+            total += item.price * item.quantity;
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span><strong>${item.name}</strong> x${item.quantity} = ${item.price * item.quantity} ₽</span>
+                <button class="remove-btn" data-id="${item.id}" data-delta="-1">−</button>
+                <button class="remove-btn" data-id="${item.id}" data-delta="1">+</button>
+            `;
+            container.appendChild(li);
+        });
+        totalSpan.innerText = total;
+
+        document.querySelectorAll('.remove-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = parseInt(btn.dataset.id);
+                const delta = parseInt(btn.dataset.delta);
+                updateQuantity(id, delta);
+            };
+        });
+    }
+
+    function formatOrderText() {
+        if (cart.length === 0) return null;
+        let lines = cart.map(i => `• ${i.name} — ${i.quantity} шт. = ${i.price * i.quantity} ₽`);
+        const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+        const name = document.getElementById('clientName').value.trim() || "не указано";
+        const phone = document.getElementById('clientPhone').value.trim() || "не указан";
+        const comment = document.getElementById('clientComment').value.trim() || "нет пожеланий";
+
+        return `🍰 НОВЫЙ ЗАКАЗ (САМОВЫВОЗ)
+
+👤 Имя: ${name}
+📞 Телефон: ${phone}
+
+📋 Состав заказа:
+${lines.join('\n')}
+
+💰 ИТОГО: ${total} ₽
+
+💬 Пожелания: ${comment}
+
+📍 Самовывоз: ул. Захарова 67к2, Минск`;
+    }
+
+    async function sendToTelegram() {
+        if (cart.length === 0) {
+            showStatus("Корзина пуста! Добавьте товары.", "error");
+            return;
+        }
+        
+        const name = document.getElementById('clientName').value.trim();
+        if (!name) {
+            showStatus("Укажите ваше имя", "error");
+            return;
+        }
+        
+        const phone = document.getElementById('clientPhone').value.trim();
+        if (!phone) {
+            showStatus("Укажите телефон для связи", "error");
+            return;
+        }
+
+        const text = formatOrderText();
+        const url = `https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`;
+        
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: CHAT_ID,
+                    text: text,
+                    parse_mode: 'HTML'
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.ok) {
+                showStatus("✅ Заказ отправлен! Менеджер свяжется с вами.", "success");
+                // Очищаем корзину
+                cart = [];
+                saveCart();
+                renderCart();
+                document.getElementById('clientName').value = '';
+                document.getElementById('clientPhone').value = '';
+                document.getElementById('clientComment').value = '';
+            } else {
+                console.error(result);
+                showStatus("❌ Ошибка отправки. Попробуйте позже.", "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showStatus("❌ Ошибка соединения. Попробуйте позже.", "error");
+        }
+    }
+
+    function showStatus(msg, type) {
+        const el = document.getElementById('statusMsg');
+        el.textContent = msg;
+        el.className = `status ${type}`;
+        setTimeout(() => {
+            el.className = 'status';
+        }, 5000);
+    }
+
+    function renderMenu() {
+        const container = document.getElementById('menu');
+        container.innerHTML = '';
+        products.forEach(p => {
+            const card = document.createElement('div');
+            card.className = 'item';
+            card.innerHTML = `
+                <div class="item-img">${p.icon || '🥐'}</div>
+                <h3>${p.name}</h3>
+                <div class="price">${p.price} ₽</div>
+                <button class="add-btn" data-id="${p.id}">+ Добавить</button>
+            `;
+            container.appendChild(card);
+        });
+        
+        document.querySelectorAll('.add-btn').forEach(btn => {
+            btn.onclick = () => {
+                const id = parseInt(btn.dataset.id);
+                const product = products.find(p => p.id === id);
+                if (product) addToCart(product);
+            };
+        });
+    }
+
+    // Иконки для товаров
+    const icons = {
+        1: '🧁', 2: '🧀', 3: '🥬', 4: '🍩', 5: '🐱', 6: '🍕', 7: '🥖', 8: '🥛', 9: '🍞'
+    };
+    products.forEach(p => p.icon = icons[p.id]);
+
+    renderMenu();
+    loadCart();
+    document.getElementById('sendOrderBtn').onclick = sendToTelegram;
+</script>
+</body>
+</html>
